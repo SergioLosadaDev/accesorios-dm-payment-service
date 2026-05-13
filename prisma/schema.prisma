@@ -114,7 +114,7 @@ model DetallePedido {
   id_detalle       Int     @id @default(autoincrement()) @map("id_detalle")
   cantidad         Int
   precio_unitario  Decimal @db.Decimal(10, 2)
-  subtotal         Decimal @db.Decimal(10, 2)
+  subtotal         Decimal @ignore
   id_pedido        Int
   id_producto      Int
   
