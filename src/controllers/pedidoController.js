@@ -193,7 +193,141 @@ const obtenerPedido = async (req, res) => {
   }
 };
 
+// Obtener pedidos por correo del cliente
+const getPedidosByClienteCorreo = async (req, res) => {
+  try {
+    const { correo } = req.params;
+
+    // Buscar cliente por correo
+    const cliente = await prisma.cliente.findUnique({
+      where: { correo: decodeURIComponent(correo) }
+    });
+
+    if (!cliente) {
+      return res.status(404).json({ error: 'Cliente no encontrado' });
+    }
+
+    // Obtener pedidos del cliente
+    const pedidos = await prisma.pedido.findMany({
+      where: { id_cliente: cliente.id_cliente },
+      include: {
+        estadoPedido: true,
+        detalles: {
+          include: {
+            producto: {
+              select: {
+                id_producto: true,
+                nombre: true,
+                precio: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: {
+        fecha_pedido: 'desc'
+      }
+    });
+
+    res.json({
+      cliente: {
+        id_cliente: cliente.id_cliente,
+        nombre: cliente.nombre,
+        correo: cliente.correo
+      },
+      total_pedidos: pedidos.length,
+      pedidos: pedidos.map(pedido => ({
+        id_pedido: pedido.id_pedido,
+        fecha_pedido: pedido.fecha_pedido,
+        total: pedido.total,
+        estado: pedido.estadoPedido.nombre,
+        direccion_envio: pedido.direccion_envio,
+        telefono_contacto: pedido.telefono_contacto,
+        cantidad_productos: pedido.detalles.reduce((sum, d) => sum + d.cantidad, 0),
+        productos: pedido.detalles.map(d => ({
+          nombre: d.producto.nombre,
+          cantidad: d.cantidad,
+          precio_unitario: d.precio_unitario,
+          subtotal: d.cantidad * parseFloat(d.precio_unitario)
+        }))
+      }))
+    });
+
+  } catch (error) {
+    console.error('Error al obtener pedidos por correo:', error);
+    res.status(500).json({ error: 'Error al obtener pedidos' });
+  }
+};
+
+// Obtener pedidos por ID de cliente
+const getPedidosByClienteId = async (req, res) => {
+  try {
+    const { clienteId } = req.params;
+
+    // Verificar que el cliente existe
+    const cliente = await prisma.cliente.findUnique({
+      where: { id_cliente: parseInt(clienteId) }
+    });
+
+    if (!cliente) {
+      return res.status(404).json({ error: 'Cliente no encontrado' });
+    }
+
+    // Obtener pedidos del cliente
+    const pedidos = await prisma.pedido.findMany({
+      where: { id_cliente: parseInt(clienteId) },
+      include: {
+        estadoPedido: true,
+        detalles: {
+          include: {
+            producto: {
+              select: {
+                id_producto: true,
+                nombre: true,
+                precio: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: {
+        fecha_pedido: 'desc'
+      }
+    });
+
+    res.json({
+      cliente: {
+        id_cliente: cliente.id_cliente,
+        nombre: cliente.nombre,
+        correo: cliente.correo
+      },
+      total_pedidos: pedidos.length,
+      pedidos: pedidos.map(pedido => ({
+        id_pedido: pedido.id_pedido,
+        fecha_pedido: pedido.fecha_pedido,
+        total: pedido.total,
+        estado: pedido.estadoPedido.nombre,
+        direccion_envio: pedido.direccion_envio,
+        telefono_contacto: pedido.telefono_contacto,
+        cantidad_productos: pedido.detalles.reduce((sum, d) => sum + d.cantidad, 0),
+        productos: pedido.detalles.map(d => ({
+          nombre: d.producto.nombre,
+          cantidad: d.cantidad,
+          precio_unitario: d.precio_unitario,
+          subtotal: d.cantidad * parseFloat(d.precio_unitario)
+        }))
+      }))
+    });
+
+  } catch (error) {
+    console.error('Error al obtener pedidos por ID:', error);
+    res.status(500).json({ error: 'Error al obtener pedidos' });
+  }
+};
+
 module.exports = {
   crearPedidoDesdeCarrito,
-  obtenerPedido
+  obtenerPedido,
+  getPedidosByClienteCorreo,
+  getPedidosByClienteId
 };
