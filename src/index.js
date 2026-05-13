@@ -13,6 +13,7 @@ app.use(express.json());
 
 // Routes
 const carritoRoutes = require('./routes/carritoRoutes');
+const pedidoRoutes = require('./routes/pedidoRoutes');
 
 // Health check
 app.get('/api/v1/health', (req, res) => {
@@ -23,8 +24,9 @@ app.get('/api/v1/health', (req, res) => {
   });
 });
 
-// Rutas de carrito
+// Rutas
 app.use('/api/v1/carrito', carritoRoutes);
+app.use('/api/v1/pedidos', pedidoRoutes);
 
 app.listen(PORT, () => {
   console.log(`Payment Service running on port ${PORT}`);
