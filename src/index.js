@@ -11,6 +11,9 @@ const PORT = process.env.PORT || 9002;
 app.use(cors());
 app.use(express.json());
 
+// Routes
+const carritoRoutes = require('./routes/carritoRoutes');
+
 // Health check
 app.get('/api/v1/health', (req, res) => {
   res.json({ 
@@ -20,10 +23,8 @@ app.get('/api/v1/health', (req, res) => {
   });
 });
 
-// Rutas (por ahora vacías)
-// app.use('/api/v1/carrito', carritoRoutes);
-// app.use('/api/v1/pedidos', pedidoRoutes);
-// app.use('/api/v1/admin', adminRoutes);
+// Rutas de carrito
+app.use('/api/v1/carrito', carritoRoutes);
 
 app.listen(PORT, () => {
   console.log(`Payment Service running on port ${PORT}`);
