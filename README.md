@@ -1,1 +1,0 @@
-# accesorios-dm-payment-service
