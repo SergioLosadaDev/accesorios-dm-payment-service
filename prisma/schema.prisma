@@ -1,0 +1,150 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  schemas  = ["security", "clientes", "catalogo", "ventas", "logistica", "inventario", "public"]
+}
+
+model Rol {
+  id_rol        Int     @id @default(autoincrement()) @map("id_rol")
+  nombre        String  @db.VarChar(50)
+  descripcion   String? @db.Text
+  fecha_creacion DateTime @default(now()) @db.Timestamp
+  
+  empleados Empleado[]
+
+  @@map("rol")
+  @@schema("security")
+}
+
+model Empleado {
+  id_empleado    Int      @id @default(autoincrement()) @map("id_empleado")
+  nombre         String   @db.VarChar(100)
+  correo         String   @unique @db.VarChar(120)
+  password       String   @db.VarChar(255)
+  fecha_creacion DateTime @default(now()) @db.Timestamp
+  estado         Boolean  @default(true)
+  id_rol         Int
+  rol            Rol      @relation(fields: [id_rol], references: [id_rol])
+
+  @@map("empleado")
+  @@schema("security")
+}
+
+model Cliente {
+  id_cliente     Int      @id @default(autoincrement()) @map("id_cliente")
+  nombre         String   @db.VarChar(100)
+  correo         String   @unique @db.VarChar(120)
+  telefono       String?  @db.VarChar(20)
+  fecha_registro DateTime @default(now()) @db.Timestamp
+  
+  pedidos Pedido[]
+
+  @@map("cliente")
+  @@schema("clientes")
+}
+
+model Producto {
+  id_producto    Int      @id @default(autoincrement()) @map("id_producto")
+  nombre         String   @db.VarChar(150)
+  descripcion    String?  @db.Text
+  precio         Decimal  @db.Decimal(10, 2)
+  stock          Int      @default(0)
+  fecha_creacion DateTime @default(now()) @db.Timestamp
+  estado         Boolean  @default(true)
+  id_categoria   Int
+  id_material    Int
+  
+  carritoItems ItemCarrito[]
+  detallesPedido DetallePedido[]
+
+  @@map("producto")
+  @@schema("catalogo")
+}
+
+model Carrito {
+  id_carrito     Int      @id @default(autoincrement()) @map("id_carrito")
+  fecha_creacion DateTime @default(now()) @db.Timestamp
+  estado         String   @default("activo") @db.VarChar(20)
+  id_cliente     Int
+  
+  items ItemCarrito[]
+
+  @@map("carrito")
+  @@schema("ventas")
+}
+
+model ItemCarrito {
+  id_item_carrito Int     @id @default(autoincrement()) @map("id_item_carrito")
+  cantidad        Int
+  precio_unitario Decimal @db.Decimal(10, 2)
+  id_carrito      Int
+  id_producto     Int
+  
+  carrito Carrito @relation(fields: [id_carrito], references: [id_carrito])
+  producto Producto @relation(fields: [id_producto], references: [id_producto])
+
+  @@map("item_carrito")
+  @@schema("ventas")
+}
+
+model Pedido {
+  id_pedido        Int      @id @default(autoincrement()) @map("id_pedido")
+  direccion_envio  String   @db.VarChar(255)
+  telefono_contacto String  @db.VarChar(20)
+  total            Decimal  @db.Decimal(10, 2)
+  fecha_pedido     DateTime @default(now()) @db.Timestamp
+  id_cliente       Int
+  id_estado_actual Int
+  
+  detalles DetallePedido[]
+  historial HistorialEstadoPedido[]
+  cliente Cliente @relation(fields: [id_cliente], references: [id_cliente])
+  estadoPedido EstadoPedido @relation(fields: [id_estado_actual], references: [id_estado])
+
+  @@map("pedido")
+  @@schema("ventas")
+}
+
+model DetallePedido {
+  id_detalle       Int     @id @default(autoincrement()) @map("id_detalle")
+  cantidad         Int
+  precio_unitario  Decimal @db.Decimal(10, 2)
+  subtotal         Decimal @db.Decimal(10, 2)
+  id_pedido        Int
+  id_producto      Int
+  
+  pedido Pedido @relation(fields: [id_pedido], references: [id_pedido])
+  producto Producto @relation(fields: [id_producto], references: [id_producto])
+
+  @@map("detalle_pedido")
+  @@schema("ventas")
+}
+
+model EstadoPedido {
+  id_estado Int    @id @default(autoincrement()) @map("id_estado")
+  nombre    String @unique @db.VarChar(50)
+  descripcion String? @db.Text
+  
+  pedidos Pedido[]
+  historial HistorialEstadoPedido[]
+
+  @@map("estado_pedido")
+  @@schema("logistica")
+}
+
+model HistorialEstadoPedido {
+  id_historial Int      @id @default(autoincrement()) @map("id_historial")
+  fecha_cambio DateTime @default(now()) @db.Timestamp
+  observacion  String?  @db.Text
+  id_pedido    Int
+  id_estado    Int
+  
+  pedido Pedido @relation(fields: [id_pedido], references: [id_pedido])
+  estado EstadoPedido @relation(fields: [id_estado], references: [id_estado])
+
+  @@map("historial_estado_pedido")
+  @@schema("logistica")
+}
