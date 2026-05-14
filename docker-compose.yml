@@ -1,0 +1,20 @@
+services:
+  payment-service:
+    build: .
+    container_name: accesorios-dm-payment-prod
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+    environment:
+      - PORT=9000
+      - DATABASE_URL=postgresql://admin:admin123@accesorios-dm-postgres-prod:5432/accesorios_dm_db
+    volumes:
+      - ./:/app
+      - /app/node_modules
+    networks:
+      - accesorios-dm-net-prod
+
+networks:
+  accesorios-dm-net-prod:
+    external: true
+    name: accesorios-dm-database_accesorios-network-prod
