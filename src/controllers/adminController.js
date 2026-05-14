@@ -250,10 +250,192 @@ const getStats = async (req, res) => {
   }
 };
 
+// Obtener resumen de ventas por período
+const getVentasPorPeriodo = async (req, res) => {
+  try {
+    const { periodo = 'mes', fecha_inicio, fecha_fin } = req.query;
+    
+    let startDate, endDate;
+    
+    if (fecha_inicio && fecha_fin) {
+      startDate = new Date(fecha_inicio);
+      endDate = new Date(fecha_fin);
+    } else {
+      endDate = new Date();
+      switch (periodo) {
+        case 'dia':
+          startDate = new Date();
+          startDate.setHours(0, 0, 0, 0);
+          break;
+        case 'semana':
+          startDate = new Date();
+          startDate.setDate(startDate.getDate() - 7);
+          break;
+        case 'mes':
+          startDate = new Date();
+          startDate.setMonth(startDate.getMonth() - 1);
+          break;
+        case 'año':
+          startDate = new Date();
+          startDate.setFullYear(startDate.getFullYear() - 1);
+          break;
+        default:
+          startDate = new Date();
+          startDate.setMonth(startDate.getMonth() - 1);
+      }
+    }
+
+    const pedidos = await prisma.pedido.findMany({
+      where: {
+        fecha_pedido: {
+          gte: startDate,
+          lte: endDate
+        }
+      },
+      include: {
+        estadoPedido: true
+      }
+    });
+
+    const totalVentas = pedidos.reduce((sum, p) => sum + parseFloat(p.total), 0);
+    const pedidosCompletados = pedidos.filter(p => p.estadoPedido.nombre === 'ENTREGADO').length;
+    const pedidosPendientes = pedidos.filter(p => p.estadoPedido.nombre === 'PENDIENTE').length;
+    const pedidosEnviados = pedidos.filter(p => p.estadoPedido.nombre === 'ENVIADO').length;
+
+    // Ventas por día (para gráfico)
+    const ventasPorDia = {};
+    pedidos.forEach(p => {
+      const fecha = p.fecha_pedido.toISOString().split('T')[0];
+      if (!ventasPorDia[fecha]) {
+        ventasPorDia[fecha] = { total: 0, cantidad: 0 };
+      }
+      ventasPorDia[fecha].total += parseFloat(p.total);
+      ventasPorDia[fecha].cantidad++;
+    });
+
+    res.json({
+      periodo: {
+        desde: startDate,
+        hasta: endDate
+      },
+      resumen: {
+        total_ventas: totalVentas,
+        total_pedidos: pedidos.length,
+        pedidos_completados: pedidosCompletados,
+        pedidos_pendientes: pedidosPendientes,
+        pedidos_enviados: pedidosEnviados,
+        ticket_promedio: pedidos.length > 0 ? totalVentas / pedidos.length : 0
+      },
+      ventas_por_dia: Object.entries(ventasPorDia).map(([fecha, data]) => ({
+        fecha,
+        total: data.total,
+        cantidad: data.cantidad
+      }))
+    });
+
+  } catch (error) {
+    console.error('Error al obtener ventas por período:', error);
+    res.status(500).json({ error: 'Error al obtener ventas por período' });
+  }
+};
+
+// Obtener productos más vendidos
+const getProductosMasVendidos = async (req, res) => {
+  try {
+    const { limit = 10 } = req.query;
+
+    const productos = await prisma.detallePedido.groupBy({
+      by: ['id_producto'],
+      _sum: {
+        cantidad: true
+      },
+      orderBy: {
+        _sum: {
+          cantidad: 'desc'
+        }
+      },
+      take: parseInt(limit)
+    });
+
+    const productosConDetalle = await Promise.all(
+      productos.map(async (p) => {
+        const producto = await prisma.producto.findUnique({
+          where: { id_producto: p.id_producto },
+          select: {
+            id_producto: true,
+            nombre: true,
+            precio: true
+          }
+        });
+        return {
+          ...producto,
+          total_vendido: p._sum.cantidad,
+          total_ingresos: p._sum.cantidad * parseFloat(producto.precio)
+        };
+      })
+    );
+
+    res.json(productosConDetalle);
+  } catch (error) {
+    console.error('Error al obtener productos más vendidos:', error);
+    res.status(500).json({ error: 'Error al obtener productos más vendidos' });
+  }
+};
+
+// Obtener clientes más frecuentes
+const getClientesTop = async (req, res) => {
+  try {
+    const { limit = 10 } = req.query;
+
+    const clientes = await prisma.pedido.groupBy({
+      by: ['id_cliente'],
+      _count: {
+        id_pedido: true
+      },
+      _sum: {
+        total: true
+      },
+      orderBy: {
+        _count: {
+          id_pedido: 'desc'
+        }
+      },
+      take: parseInt(limit)
+    });
+
+    const clientesConDetalle = await Promise.all(
+      clientes.map(async (c) => {
+        const cliente = await prisma.cliente.findUnique({
+          where: { id_cliente: c.id_cliente },
+          select: {
+            id_cliente: true,
+            nombre: true,
+            correo: true,
+            telefono: true
+          }
+        });
+        return {
+          ...cliente,
+ total_pedidos: c._count.id_pedido,
+          total_gastado: c._sum.total
+        };
+      })
+    );
+
+    res.json(clientesConDetalle);
+  } catch (error) {
+    console.error('Error al obtener clientes top:', error);
+    res.status(500).json({ error: 'Error al obtener clientes top' });
+  }
+};
+
 module.exports = {
   getAllPedidos,
   getPedidoDetail,
   updatePedidoEstado,
   getEstadosDisponibles,
-  getStats
+  getStats,
+  getVentasPorPeriodo,
+  getProductosMasVendidos,
+  getClientesTop
 };

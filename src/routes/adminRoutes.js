@@ -8,5 +8,8 @@ router.get('/pedidos/:id', adminController.getPedidoDetail);
 router.put('/pedidos/:id/estado', adminController.updatePedidoEstado);
 router.get('/estados', adminController.getEstadosDisponibles);
 router.get('/stats', adminController.getStats);
+router.get('/ventas/periodo', adminController.getVentasPorPeriodo);
+router.get('/productos/top', adminController.getProductosMasVendidos);
+router.get('/clientes/top', adminController.getClientesTop);
 
 module.exports = router;
