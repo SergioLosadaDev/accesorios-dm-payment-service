@@ -141,7 +141,7 @@ const crearPedidoDesdeCarrito = async (req, res) => {
         nombre: cliente.nombre,
         correo: cliente.correo
       },
-      whatsapp_link: `https://wa.me/573001234567?text=Hola,%20quiero%20realizar%20el%20pago%20del%20pedido%20%23${pedido.id_pedido}%20por%20un%20total%20de%20$${total}`
+      whatsapp_link: `https://wa.me/573166751065?text=Hola,%20quiero%20realizar%20el%20pago%20del%20pedido%20%23${pedido.id_pedido}%20por%20un%20total%20de%20$${total}`
     });
 
   } catch (error) {
