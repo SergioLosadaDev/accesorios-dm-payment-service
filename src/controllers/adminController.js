@@ -138,61 +138,88 @@ const getPedidoDetail = async (req, res) => {
   }
 };
 
-// Actualizar estado de un pedido
+// Actualizar estado de pedido
 const updatePedidoEstado = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { estado_id, observacion } = req.body;
-
-    // Verificar que el pedido existe
-    const pedido = await prisma.pedido.findUnique({
-      where: { id_pedido: parseInt(id) }
-    });
-
-    if (!pedido) {
-      return res.status(404).json({ error: 'Pedido no encontrado' });
+    try {
+        const { id } = req.params;
+        const { id_estado, estado } = req.body;
+        const estadoQuery = req.query.estado;
+        
+        let estadoId = null;
+        
+        // Prioridad: 1. id_estado (body), 2. estado (query), 3. estado (body)
+        if (id_estado) {
+            estadoId = parseInt(id_estado);
+        } else if (estadoQuery) {
+            const estadoEncontrado = await prisma.estadoPedido.findFirst({
+                where: { nombre: estadoQuery }
+            });
+            if (estadoEncontrado) {
+                estadoId = estadoEncontrado.id_estado;
+            }
+        } else if (estado) {
+            const estadoEncontrado = await prisma.estadoPedido.findFirst({
+                where: { nombre: estado }
+            });
+            if (estadoEncontrado) {
+                estadoId = estadoEncontrado.id_estado;
+            }
+        }
+        
+        if (!estadoId) {
+            return res.status(400).json({ 
+                error: "Se requiere id_estado o estado",
+                ejemplo: { id_estado: 2, estado: "PAGADO" }
+            });
+        }
+        
+        // Verificar que el pedido existe
+        const pedido = await prisma.pedido.findUnique({
+            where: { id_pedido: parseInt(id) }
+        });
+        
+        if (!pedido) {
+            return res.status(404).json({ error: "Pedido no encontrado" });
+        }
+        
+        // Verificar que el nuevo estado existe
+        const nuevoEstado = await prisma.estadoPedido.findUnique({
+            where: { id_estado: estadoId }
+        });
+        
+        if (!nuevoEstado) {
+            return res.status(404).json({ error: "Estado no encontrado" });
+        }
+        
+        // Actualizar el pedido - CAMPO CORRECTO: id_estado_actual
+        const pedidoActualizado = await prisma.pedido.update({
+            where: { id_pedido: parseInt(id) },
+            data: { 
+                id_estado_actual: estadoId
+            }
+        });
+        
+        // Registrar en historial
+        await prisma.historialEstadoPedido.create({
+            data: {
+                id_pedido: parseInt(id),
+                id_estado: estadoId,
+                observacion: `Estado actualizado a: ${nuevoEstado.nombre}`
+            }
+        });
+        
+        res.json({
+            success: true,
+            message: "Estado actualizado correctamente",
+            pedido: pedidoActualizado,
+            nuevo_estado: nuevoEstado.nombre
+        });
+        
+    } catch (error) {
+        console.error("Error al actualizar estado del pedido:", error);
+        res.status(500).json({ error: "No se pudo actualizar estado", details: error.message });
     }
-
-    // Verificar que el nuevo estado existe
-    const nuevoEstado = await prisma.estadoPedido.findUnique({
-      where: { id_estado: parseInt(estado_id) }
-    });
-
-    if (!nuevoEstado) {
-      return res.status(400).json({ error: 'Estado no válido' });
-    }
-
-    // Actualizar estado del pedido
-    const pedidoActualizado = await prisma.pedido.update({
-      where: { id_pedido: parseInt(id) },
-      data: { id_estado_actual: parseInt(estado_id) }
-    });
-
-    // Registrar en historial
-    await prisma.historialEstadoPedido.create({
-      data: {
-        observacion: observacion || `Estado actualizado a: ${nuevoEstado.nombre}`,
-        id_pedido: parseInt(id),
-        id_estado: parseInt(estado_id)
-      }
-    });
-
-    res.json({
-      message: 'Estado actualizado correctamente',
-      pedido: {
-        id_pedido: pedidoActualizado.id_pedido,
-        estado_anterior: pedido.id_estado_actual,
-        estado_nuevo: parseInt(estado_id),
-        estado_nombre: nuevoEstado.nombre
-      }
-    });
-
-  } catch (error) {
-    console.error('Error al actualizar estado del pedido:', error);
-    res.status(500).json({ error: 'Error al actualizar estado del pedido' });
-  }
 };
-
 // Obtener todos los estados disponibles
 const getEstadosDisponibles = async (req, res) => {
   try {
