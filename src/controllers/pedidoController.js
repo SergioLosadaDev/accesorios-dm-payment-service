@@ -325,9 +325,96 @@ const getPedidosByClienteId = async (req, res) => {
   }
 };
 
+const checkout = async (req, res) => {
+  try {
+    const {
+      cliente,
+      items,
+      direccion_envio,
+      telefono_contacto
+    } = req.body;
+
+    // 1. Crear cliente en security-service
+    let clienteDb;
+
+    // Intentar buscar cliente existente
+    const clienteExistenteResponse = await fetch(
+      `${process.env.SECURITY_SERVICE_URL}/clientes/correo/${encodeURIComponent(cliente.correo)}`
+    );
+
+    if (clienteExistenteResponse.ok) {
+
+      // Cliente ya existe
+      clienteDb = await clienteExistenteResponse.json();
+
+    } else {
+
+      // Crear cliente nuevo
+      const crearClienteResponse = await fetch(
+        `${process.env.SECURITY_SERVICE_URL}/clientes/`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            nombre: cliente.nombre,
+            correo: cliente.correo,
+            telefono: cliente.telefono
+          })
+        }
+      );
+
+      if (!crearClienteResponse.ok) {
+        const errorText = await crearClienteResponse.text();
+        throw new Error(errorText);
+      }
+
+      clienteDb = await crearClienteResponse.json();
+    }
+
+    // 2. Crear carrito
+    const carrito = await prisma.carrito.create({
+      data: {
+        id_cliente: clienteDb.id_cliente,
+        estado: 'activo'
+      }
+    });
+
+    // 3. Agregar productos al carrito
+    for (const item of items) {
+      await prisma.itemCarrito.create({
+        data: {
+          id_carrito: carrito.id_carrito,
+          id_producto: item.id_producto,
+          cantidad: item.cantidad,
+          precio_unitario: item.precio_unitario || 0
+        }
+      });
+    }
+
+    // 4. Reutilizamos tu función existente
+    req.body = {
+      id_carrito: carrito.id_carrito,
+      direccion_envio,
+      telefono_contacto,
+      cliente_nombre: cliente.nombre,
+      cliente_correo: cliente.correo,
+      cliente_telefono: cliente.telefono
+    };
+
+    return crearPedidoDesdeCarrito(req, res);
+
+  } catch (error) {
+    console.error('Error en checkout:', error);
+    res.status(500).json({ error: 'Error en checkout', details: error.message });
+  }
+};
+
 module.exports = {
   crearPedidoDesdeCarrito,
   obtenerPedido,
   getPedidosByClienteCorreo,
-  getPedidosByClienteId
+  getPedidosByClienteId,
+  checkout
 };
